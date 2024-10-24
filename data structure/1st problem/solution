@@ -1,0 +1,42 @@
+SELECT e.employee_id                                                                  as id,
+       CASE
+         WHEN (LENGTH(e.first_name) < 3) THEN e.first_name || q'[']' || e.last_name
+         ELSE SUBSTR(e.first_name, 3, 1) || q'[']' || e.last_name
+       END                                                                            as "F and L",
+       CASE
+         WHEN (d.department_name IS NULL) THEN
+           CASE
+             WHEN (em.first_name IS NULL) THEN UPPER(e.first_name)
+             ELSE UPPER(SUBSTR(em.first_name, 2, 1))
+           END
+           ELSE d.department_name                                                     
+       END                                                                            as departments,
+       CASE 
+         WHEN (em.last_name IS NULL) THEN '' || e.employee_id
+         ELSE SUBSTR(em.last_name, LENGTH(em.last_name)-1, 1)
+       END                                                                            as managers,
+       to_char(e.salary, 'fm$99,999.90')                                              as salary,
+       emm.first_name                                                                 as manager_manager,
+       CASE 
+         WHEN emm.salary IS NULL THEN e.first_name
+         ELSE '' || emm.salary
+       END                                                                            as manager_manager_salary
+       
+       
+FROM  employees e
+LEFT JOIN departments d ON d.department_id = e.department_id
+LEFT JOIN employees em ON e.manager_id = em.employee_id
+LEFT JOIN employees emm ON emm.employee_id = em.manager_id
+
+WHERE (em.manager_id IS NULL OR MOD(LENGTH(emm.first_name), 2) = 1) AND ((e.manager_id IS NULL AND em.manager_id IS NULL) OR emm.salary / em.salary >= 1.5 )
+
+ORDER BY 
+      CASE 
+        WHEN TO_CHAR(e.hire_date, 'DD') >= 16 THEN 1
+        ELSE 2
+      END,
+      
+      CASE 
+        WHEN MOD(LENGTH(e.first_name), 2) = 1 THEN 1
+        ELSE 2
+      END

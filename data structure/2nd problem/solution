@@ -1,0 +1,18 @@
+SELECT
+    SUBSTR(j.job_id, 1, INSTR(j.job_id, '_') - 1)                                             AS PREF,
+    COUNT(DISTINCT j.job_id)                                                                  AS POSITIONS,
+    CASE
+        WHEN COUNT(DISTINCT e.employee_id) > 0 THEN ' ' || COUNT(DISTINCT e.employee_id)
+        ELSE 'No Emp ON ' || SUBSTR(j.job_id, 1, INSTR(j.job_id, '_') - 1)
+    END                                                                                       AS WORKERS,
+    SUM(CASE WHEN e.first_name LIKE '%A%' OR e.first_name LIKE '%a%' THEN 1 ELSE 0 END)       AS NAMES_WITH_A,
+    SUM(CASE WHEN TO_CHAR(e.hire_date, 'YYYY') = '2002' THEN 1 ELSE 0 END)                    AS "2002",
+    ROUND(AVG(e.salary), -2)                                                                  AS TOTAL_SALARY
+FROM jobs j
+LEFT JOIN employees e ON e.job_id = j.job_id
+GROUP BY SUBSTR(j.job_id, 1, INSTR(j.job_id, '_') - 1)
+ORDER BY
+    CASE
+        WHEN SUBSTR(j.job_id, 1, INSTR(j.job_id, '_') - 1) = 'IT' THEN -1
+        WHEN SUBSTR(j.job_id, 1, INSTR(j.job_id, '_') - 1) = 'MK' THEN 0
+    END, TOTAL_SALARY DESC;
