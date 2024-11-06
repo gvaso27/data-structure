@@ -1,0 +1,58 @@
+SELECT j.job_id AS job_id,
+    
+	j.job_title AS name,
+    
+    CASE
+    	WHEN
+    	SUM(CASE
+    			WHEN MOD(e.employee_id, 2) = 1 THEN 1
+    			ELSE 0
+    		END) = 0 THEN 'N/A'
+    	ELSE
+    	TO_CHAR(SUM(CASE
+    			WHEN MOD(e.employee_id, 2) = 1 THEN 1
+    			ELSE 0
+    		END))
+    END AS emp_cnt,
+
+    CASE
+    	WHEN
+    		AVG(CASE
+    				WHEN MOD(e.employee_id, 2) = 0 THEN e.salary
+    				ELSE 0
+    			END) = 0 THEN 'N/A'
+    	ELSE
+    	TO_CHAR(AVG(CASE
+    			WHEN MOD(e.employee_id, 2) = 0 THEN e.salary
+    			ELSE 0
+    		END))
+    END AS avg_sal,
+
+    CASE
+    	WHEN
+    		SUM(CASE
+    				WHEN j.max_salary = e.salary THEN 1
+    				ELSE 0
+    			END) = 0 THEN 'N/A'
+    	ELSE
+    		TO_CHAR(SUM(CASE
+    						WHEN j.max_salary = e.salary THEN 1
+    						ELSE 0
+    					END))
+    END AS mx_cnt
+
+FROM 
+    jobs j
+LEFT JOIN
+	employees e ON e.job_id = j.job_id
+WHERE
+    LENGTH(j.job_id) > 3 AND
+    (j.max_salary-j.min_salary) < (SELECT MAX(max_salary - min_salary) FROM jobs)
+GROUP BY
+	j.job_id, j.job_title
+ORDER BY 
+    CASE 
+        WHEN j.job_id LIKE '%IT%' THEN 0
+        ELSE 1
+    END,
+    j.job_id;

@@ -1,7 +1,7 @@
 SELECT e.employee_id                                                                  as id,
        CASE
-         WHEN (LENGTH(e.first_name) < 3) THEN e.first_name || q'[']' || e.last_name
-         ELSE SUBSTR(e.first_name, 3, 1) || q'[']' || e.last_name
+          WHEN LENGTH(e.first_name) < 3 THEN e.first_name || '''' || e.last_name
+          ELSE SUBSTR(e.first_name, 3, 1) || '''' || e.last_name
        END                                                                            as "F and L",
        CASE
          WHEN (d.department_name IS NULL) THEN

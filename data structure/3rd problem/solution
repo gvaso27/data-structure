@@ -1,0 +1,184 @@
+-- Drop tables if they exist
+DROP TABLE IF EXISTS SGV_Transactions;
+DROP TABLE IF EXISTS SGV_Users;
+DROP TABLE IF EXISTS SGV_Books;
+DROP TABLE IF EXISTS SGV_Fines;
+DROP TABLE IF EXISTS SGV_DamagedBooks;
+
+-- Create tables
+CREATE TABLE SGV_Users 
+(
+  MemberID INTEGER PRIMARY KEY,
+  MemberName VARCHAR(35) NOT NULL,
+  MemberEmail VARCHAR(35),
+  ContactNumber VARCHAR(35)
+);
+
+CREATE TABLE SGV_Books 
+(
+  BookCode INTEGER PRIMARY KEY,
+  BookTitle VARCHAR(100) NOT NULL,
+  BookAuthor VARCHAR(35) NOT NULL,
+  BookCategory VARCHAR(35) NOT NULL,
+  BookStatus VARCHAR(35) NOT NULL,
+  ExpiryMonths INTEGER,
+  PublicationDate DATE
+);
+
+CREATE TABLE SGV_Fines 
+(
+  BookCategory VARCHAR(35),
+  LateFineAmount INTEGER
+);
+
+CREATE TABLE SGV_DamagedBooks
+(
+  BookCode INTEGER PRIMARY KEY,
+  BookTitle VARCHAR(100) NOT NULL,
+  BookAuthor VARCHAR(35) NOT NULL,
+  BookCategory VARCHAR(35) NOT NULL
+);
+
+CREATE TABLE SGV_Transactions (
+  TransactionID INTEGER PRIMARY KEY,
+  BookCode INTEGER,
+  MemberID INTEGER,
+  IssueDate DATE DEFAULT SYSDATE,
+  ReturnDate DATE DEFAULT ADD_MONTHS(SYSDATE, 1),
+  ActualReturnDate DATE,
+  TransactionStatus VARCHAR(100),
+  FOREIGN KEY (BookCode) REFERENCES SGV_Books(BookCode),
+  FOREIGN KEY (MemberID) REFERENCES SGV_Users(MemberID)
+);
+
+-- Insert random records into SGV_Books
+INSERT INTO SGV_Books (BookCode, BookTitle, BookAuthor, BookCategory, BookStatus, PublicationDate) VALUES
+  (11, 'Random Book 1', 'Author1', 'Fiction', 'Available', '2023-01-01'),
+  (12, 'Random Book 2', 'Author2', 'Fiction', 'Available', '2023-01-02'),
+  (13, 'Random Book 3', 'Author3', 'Non-Fiction', 'Available', '2023-01-03'),
+  (14, 'Random Book 4', 'Author4', 'Non-Fiction', 'Issued', '2023-01-04'),
+  (15, 'Random Book 5', 'Author5', 'Mystery', 'Issued', '2023-01-05');
+
+-- Insert random records into SGV_Users
+INSERT INTO SGV_Users (MemberID, MemberName, MemberEmail, ContactNumber) VALUES
+  (11, 'Random User 1', 'randomuser1@example.com', '555-123-01'),
+  (12, 'Random User 2', 'randomuser2@example.com', '555-123-02'),
+  (13, 'Random User 3', 'randomuser3@example.com', '555-123-03'),
+  (14, 'Random User 4', 'randomuser4@example.com', '555-123-04'),
+  (15, 'Random User 5', 'randomuser5@example.com', '555-123-05');
+
+-- Insert random records into SGV_Transactions
+INSERT INTO SGV_Transactions (TransactionID, BookCode, MemberID, IssueDate, ReturnDate, TransactionStatus) VALUES
+  (11, 11, 11, '2023-01-01', strftime('%Y-%m-%d', 'now', '+1 month'), 'Issued'),
+  (12, 12, 12, '2023-01-02', strftime('%Y-%m-%d', 'now', '+1 month'), 'Issued'),
+  (13, 13, 13, '2023-01-03', strftime('%Y-%m-%d', 'now', '+1 month'), 'Issued'),
+  (14, 14, 14, '2023-01-04', strftime('%Y-%m-%d', 'now', '+1 month'), 'Returned'),
+  (15, 15, 15, '2023-01-05', strftime('%Y-%m-%d', 'now', '+1 month'), 'Returned');
+
+-- Insert random records into SGV_Fines
+INSERT INTO SGV_Fines (BookCategory, LateFineAmount) VALUES
+  ('Fiction', 5),
+  ('Non-Fiction', 10),
+  ('Mystery', 15);
+
+-- Insert random records into SGV_DamagedBooks
+INSERT INTO SGV_DamagedBooks (BookCode, BookTitle, BookAuthor, BookCategory) VALUES
+  (21, 'Damaged Book 1', 'Author6', 'Fiction'),
+  (22, 'Damaged Book 2', 'Author7', 'Non-Fiction'),
+  (23, 'Damaged Book 3', 'Author8', 'Mystery');
+
+---1
+SELECT COUNT(),
+       COUNT(CASE
+               WHEN BookStatus = 'Available' THEN
+                1
+             END),
+       COUNT(CASE
+               WHEN BookStatus = 'Issued' THEN
+                1
+             END)
+  FROM SGV_Books;
+
+----2
+SELECT COUNT(),
+       COUNT(CASE
+               WHEN BookStatus = 'Available' THEN
+                1
+             END),
+       COUNT(CASE
+               WHEN BookStatus = 'Issued' THEN
+                1
+             END)
+  FROM SGV_Books
+ GROUP BY BookCategory;
+
+----3
+WITH SGV_GenreReadStatus AS
+ (SELECT b.BookCategory, COUNT(t.TransactionID) AS ReadCount
+    FROM SGV_Books b
+    LEFT JOIN SGV_Transactions t
+      ON b.BookCode = t.BookCode
+     AND t.TransactionStatus = 'Issued'
+   GROUP BY b.BookCategory)
+---4
+SELECT MAX(CASE
+             WHEN rnum = 1 THEN
+              BookCategory
+           END) AS MostReadGenre,
+       MAX(CASE
+             WHEN rnum = total_rows THEN
+              BookCategory
+           END) AS LeastReadGenre
+  FROM (SELECT g.BookCategory,
+               RANK() OVER(ORDER BY g.ReadCount DESC) AS rnum,
+               COUNT() OVER() AS total_rows
+          FROM SGV_GenreReadStatus g)
+ WHERE rnum = 1
+    OR rnum = total_rows;
+
+----5
+SELECT U.MemberName AS UserName,
+       U.MemberEmail AS UserEmail,
+       B.BookTitle AS BookTitle,
+       T.IssueDate AS IssueDate,
+       T.ReturnDate AS ExpectedReturnDate,
+       (T.ReturnDate - T.IssueDate) AS DaysUntilReturn
+  FROM SGV_Transactions T
+  JOIN SGV_Users U ON T.MemberID = U.MemberID
+  JOIN SGV_Books B ON T.BookCode = B.BookCode
+ WHERE T.TransactionStatus = 'Issued';
+
+----6
+SELECT B.BookTitle, U.MemberEmail, T.IssueDate, DATE(T.ActualReturnDate) - DATE(T.ReturnDate) AS DaysOverdue
+  FROM SGV_Transactions T
+  LEFT JOIN SGV_Books B ON T.BookCode = B.BookCode
+  LEFT JOIN SGV_Users U ON T.MemberID = U.MemberID
+ WHERE T.ActualReturnDate  T.ReturnDate;
+
+---7
+SELECT U.MemberName AS UserName,
+       U.MemberEmail AS UserEmail,
+       B.BookTitle AS BookTitle,
+       T.IssueDate AS IssueDate,
+       T.ReturnDate AS ExpectedReturnDate,
+       T.ActualReturnDate AS ActualReturnDate,
+       CASE
+         WHEN T.ActualReturnDate IS NULL AND CURRENT_DATE  T.ReturnDate THEN
+          (CURRENT_DATE - T.ReturnDate)  F.LateFineAmount
+         ELSE
+          0
+       END AS FineAmount
+  FROM SGV_Transactions T
+  JOIN SGV_Users U ON T.MemberID = U.MemberID
+  JOIN SGV_Books B ON T.BookCode = B.BookCode
+  JOIN SGV_Fines F ON B.BookCategory = F.BookCategory
+ WHERE T.TransactionStatus = 'Issued'
+   AND (T.ActualReturnDate IS NULL AND CURRENT_DATE  T.ReturnDate);
+
+---8
+SELECT 
+  FROM SGV_Books    
+ WHERE strftime('%Y-%m-%d', PublicationDate, '+'  (ExpiryMonths + 1)  ' months')  CURRENT_DATE;
+
+---9
+SELECT  FROM SGV_DamagedBooks;
